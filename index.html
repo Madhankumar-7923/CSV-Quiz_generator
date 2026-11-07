@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CSV Quiz Generator</title>
+  <meta name="description" content="Upload a CSV of questions and play it as a quiz game. Runs entirely in your browser.">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <div class="wrap site-header__inner">
+      <h1 class="site-title">
+        <span class="site-title__mark" aria-hidden="true">?</span>
+        CSV Quiz Generator
+      </h1>
+      <p class="site-tagline">Upload a sheet, play the quiz. Nothing leaves your browser.</p>
+    </div>
+  </header>
+
+  <main id="main" class="wrap">
+
+    <!-- ================= UPLOAD SCREEN ================= -->
+    <section id="screen-upload" class="screen" aria-labelledby="upload-heading">
+      <h2 id="upload-heading" class="screen__heading">Load your questions</h2>
+
+      <div id="dropZone" class="dropzone" tabindex="0" role="button"
+           aria-describedby="dropzone-hint">
+        <svg class="dropzone__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M12 16V4m0 0L8 8m4-4 4 4" fill="none" stroke="currentColor"
+                stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" fill="none" stroke="currentColor"
+                stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+        <p class="dropzone__title">Drop a CSV file here</p>
+        <p id="dropzone-hint" class="dropzone__hint">or click to browse &middot; .csv files only</p>
+        <input id="fileInput" class="visually-hidden" type="file" accept=".csv,.txt,text/csv">
+      </div>
+
+      <div class="upload-actions">
+        <button id="btnSample" class="btn btn--ghost" type="button">Try a sample quiz</button>
+        <button id="btnTemplate" class="btn btn--ghost" type="button">Download CSV template</button>
+      </div>
+
+      <fieldset class="options-panel">
+        <legend class="options-panel__legend">Game options</legend>
+        <label class="switch">
+          <input id="optShuffleQuestions" type="checkbox">
+          <span>Shuffle question order</span>
+        </label>
+        <label class="switch">
+          <input id="optShuffleOptions" type="checkbox">
+          <span>Shuffle answer options</span>
+        </label>
+        <label class="switch">
+          <input id="optInstantFeedback" type="checkbox">
+          <span>Show if each answer was right as I go</span>
+        </label>
+      </fieldset>
+
+      <!-- Validation report -->
+      <div id="report" class="report" hidden>
+        <div class="report__head">
+          <h3 id="reportTitle" class="report__title"></h3>
+          <p id="reportSummary" class="report__summary"></p>
+        </div>
+        <ul id="reportList" class="report__list"></ul>
+        <p id="reportMore" class="report__more" hidden></p>
+        <div id="reportActions" class="report__actions"></div>
+      </div>
+
+      <details class="format">
+        <summary class="format__summary">What should the CSV look like?</summary>
+        <div class="format__body">
+          <p>One question per row, with a header row on top:</p>
+          <pre class="code"><code>question,option1,option2,option3,option4,answer
+                                  "What is 2 + 2?",3,4,5,6,2
+                                  "Capital of Japan?",Osaka,Kyoto,Tokyo,Nagoya,Tokyo</code></pre>
+          <ul class="format__notes">
+            <li><strong>Header names are flexible.</strong> <code>Question</code>, <code>Option A</code>,
+                <code>choice_1</code>, <code>Correct Answer</code> and similar all work.</li>
+            <li><strong>The answer column</strong> can be a number (<code>1</code>&ndash;<code>4</code>),
+                a letter (<code>A</code>&ndash;<code>D</code>), or the full text of the correct option.</li>
+            <li><strong>Commas and line breaks</strong> inside a field are fine as long as the field is
+                wrapped in double quotes.</li>
+            <li>Comma, semicolon and tab separated files are all detected automatically.</li>
+            <li>Blank rows are skipped. Rows with problems are reported with their line number.</li>
+          </ul>
+        </div>
+      </details>
+    </section>
+
+    <!-- ================= QUIZ SCREEN ================= -->
+    <section id="screen-quiz" class="screen" aria-labelledby="quiz-heading" hidden>
+      <h2 id="quiz-heading" class="visually-hidden">Quiz in progress</h2>
+
+      <div class="quiz-bar">
+        <p id="quizCounter" class="quiz-bar__counter" aria-live="polite"></p>
+        <p id="quizFile" class="quiz-bar__file"></p>
+      </div>
+      <div class="progress" aria-hidden="true">
+        <div id="progressBar" class="progress__bar"></div>
+      </div>
+
+      <article class="card question-card">
+        <p id="questionText" class="question-card__text"></p>
+
+        <fieldset class="choices">
+          <legend class="visually-hidden">Choose one answer</legend>
+          <div id="choices" class="choices__list"></div>
+        </fieldset>
+
+        <p id="feedback" class="feedback" role="status" aria-live="polite" hidden></p>
+      </article>
+
+      <nav class="quiz-nav" aria-label="Quiz navigation">
+        <button id="btnPrev" class="btn btn--ghost" type="button">Back</button>
+        <span class="quiz-nav__spacer"></span>
+        <button id="btnQuit" class="btn btn--quiet" type="button">Quit</button>
+        <button id="btnNext" class="btn btn--primary" type="button">Next</button>
+      </nav>
+
+      <p class="shortcuts">
+        Shortcuts: press <kbd>1</kbd>&ndash;<kbd>4</kbd> to pick an answer,
+        <kbd>Enter</kbd> for next, <kbd>&larr;</kbd> to go back.
+      </p>
+    </section>
+
+    <!-- ================= RESULTS SCREEN ================= -->
+    <section id="screen-results" class="screen" aria-labelledby="results-heading" hidden>
+      <h2 id="results-heading" class="screen__heading">Your result</h2>
+
+      <div class="card scorecard">
+        <div class="scorecard__dial">
+          <svg viewBox="0 0 120 120" class="dial" role="img" aria-labelledby="dialLabel">
+            <title id="dialLabel">Score dial</title>
+            <circle class="dial__track" cx="60" cy="60" r="52" />
+            <circle id="dialValue" class="dial__value" cx="60" cy="60" r="52" />
+          </svg>
+          <p id="scorePercent" class="scorecard__percent"></p>
+        </div>
+        <div class="scorecard__detail">
+          <p id="scoreHeadline" class="scorecard__headline"></p>
+          <p id="scoreLine" class="scorecard__line"></p>
+          <ul class="scorecard__stats">
+            <li><span id="statCorrect" class="stat__num">0</span><span class="stat__label">Correct</span></li>
+            <li><span id="statWrong" class="stat__num">0</span><span class="stat__label">Wrong</span></li>
+            <li><span id="statSkipped" class="stat__num">0</span><span class="stat__label">Skipped</span></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="review-head">
+        <h3 class="review-head__title">Answer review</h3>
+        <label class="switch switch--inline">
+          <input id="optOnlyWrong" type="checkbox">
+          <span>Only show what I got wrong</span>
+        </label>
+      </div>
+      <ol id="review" class="review"></ol>
+      <p id="reviewEmpty" class="review__empty" hidden>Nothing to show here. You got everything right.</p>
+
+      <div class="results-actions">
+        <button id="btnRetry" class="btn btn--primary" type="button">Play again</button>
+        <button id="btnNewFile" class="btn btn--ghost" type="button">Load a different CSV</button>
+        <button id="btnExport" class="btn btn--ghost" type="button">Download results</button>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="site-footer">
+    <p class="wrap">Files are read locally in your browser. Nothing is uploaded to a server.</p>
+  </footer>
+
+  <script src="js/csv.js"></script>
+  <script src="js/validate.js"></script>
+  <script src="js/quiz.js"></script>
+  <script src="js/sample.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
